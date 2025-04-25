@@ -1,3 +1,4 @@
+![Project Logo](./__icon__.ico)
 # MAC Compare
 
 ## Overview
