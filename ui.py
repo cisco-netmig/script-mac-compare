@@ -1,4 +1,6 @@
 import logging
+logger = logging.getLogger(__name__)
+
 import os
 import re
 import json
@@ -254,7 +256,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
         self.setup_ui(self)
 
         self.snapshots_table_row = 0
-        logging.debug("Initializing snapshot scan on startup.")
+        logger.debug("Initializing snapshot scan on startup.")
         self.scan_snapshots()
 
         self.create_button.clicked.connect(self.create_start_event)
@@ -273,7 +275,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
         snapshots_path = os.path.join(self.output_dir, 'Snapshots')
 
         if os.path.exists(snapshots_path):
-            logging.debug(f"Scanning snapshots in: {snapshots_path}")
+            logger.debug(f"Scanning snapshots in: {snapshots_path}")
             for file in os.listdir(snapshots_path):
                 try:
                     match = re.search(r'\[(.*)\]_\[(.*)\]_\[(.*)\].json', file)
@@ -285,7 +287,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
                         }
                         self.add_snapshot(snapshot)
                 except Exception as e:
-                    logging.debug(f"Unable to add snapshot from file: {file} {e}")
+                    logger.debug(f"Unable to add snapshot from file: {file} {e}")
 
     def create_start_event(self):
         """
@@ -296,7 +298,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
             self.name_line_edit.setFocus()
             return
 
-        logging.debug("Starting snapshot creation process.")
+        logger.debug("Starting snapshot creation process.")
         self.create_button.setEnabled(False)
         self.create_worker = CreateEvent(self)
         self.create_worker.start()
@@ -307,14 +309,14 @@ class Form(QtWidgets.QWidget, Ui_Form):
         """
         Callback for when the snapshot creation process finishes.
         """
-        logging.debug("Snapshot creation finished.")
+        logger.debug("Snapshot creation finished.")
         self.create_button.setEnabled(True)
 
     def compare_start_event(self):
         """
         Starts the snapshot comparison process by launching the compare worker.
         """
-        logging.debug("Starting snapshot comparison process.")
+        logger.debug("Starting snapshot comparison process.")
         self.compare_worker = CompareEvent(self)
         self.compare_worker.start()
         self.compare_worker.finished.connect(self.compare_finish_event)
@@ -328,7 +330,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
         self.report_button.setDisabled(False)
 
         QtWidgets.QMessageBox.information(self, "Info", "Task completed!!")
-        logging.debug("Diagnostics run completed successfully.")
+        logger.debug("Diagnostics run completed successfully.")
 
     def add_snapshot(self, slot):
         """
@@ -344,7 +346,7 @@ class Form(QtWidgets.QWidget, Ui_Form):
         self.snapshots_table.setItem(row, 0, QtWidgets.QTableWidgetItem(slot['name']))
         self.snapshots_table.setItem(row, 1, QtWidgets.QTableWidgetItem(slot['type']))
         self.snapshots_table.setItem(row, 2, QtWidgets.QTableWidgetItem(slot['timestamp']))
-        logging.debug(f"Snapshot added: {slot['name']} - {slot['type']} - {slot['timestamp']}")
+        logger.debug(f"Snapshot added: {slot['name']} - {slot['type']} - {slot['timestamp']}")
 
     def view_snapshot_event(self):
         """
@@ -367,10 +369,10 @@ class Form(QtWidgets.QWidget, Ui_Form):
                 workbook.dump(snapshot_data['endpoints'])
                 workbook.close()
 
-                logging.info(f"Snapshot opened: {row['name']}")
+                logger.info(f"Snapshot opened: {row['name']}")
                 self.open_path(xlsx_file)
             else:
-                logging.warning(f"Snapshot file not found: {file_path}")
+                logger.warning(f"Snapshot file not found: {file_path}")
 
     def delete_snapshot_event(self):
         """
@@ -390,9 +392,9 @@ class Form(QtWidgets.QWidget, Ui_Form):
             if os.path.exists(file_path):
                 os.remove(file_path)
                 self.snapshots_table.removeRow(row['row'])
-                logging.info(f"Deleted snapshot: {row['name']}")
+                logger.info(f"Deleted snapshot: {row['name']}")
             else:
-                logging.warning(f"Snapshot file not found for deletion: {file_path}")
+                logger.warning(f"Snapshot file not found for deletion: {file_path}")
 
     def open_path(self, path: str):
         """
@@ -403,9 +405,9 @@ class Form(QtWidgets.QWidget, Ui_Form):
         """
         try:
             if path and os.path.exists(path):
-                logging.info(f"Opening path: {path}")
+                logger.info(f"Opening path: {path}")
                 QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
             else:
-                logging.error(f"Invalid or non-existent path: {path}")
+                logger.error(f"Invalid or non-existent path: {path}")
         except Exception as e:
-            logging.exception(f"Failed to open path: {e}")
+            logger.exception(f"Failed to open path: {e}")
