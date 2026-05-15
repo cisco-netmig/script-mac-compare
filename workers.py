@@ -1,9 +1,11 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import re
 import copy
 import json
 import requests
-import logging
 from datetime import datetime
 from socket import getfqdn
 from time import sleep
@@ -40,7 +42,7 @@ class CreateEvent(QtCore.QThread):
         self.name = self.form.name_line_edit.text()
         self.type = self.form.type_combobox.currentText()
         self.devices = list(filter(None, self.form.device_text_edit.toPlainText().splitlines()))
-        logging.info('Snapshot worker started.')
+        logger.info('Snapshot worker started.')
 
         self.data = {'endpoints': {}}
         self.load_mac_vendor()
@@ -48,7 +50,7 @@ class CreateEvent(QtCore.QThread):
         self.refactor_data()
         self.save_snapshot()
 
-        logging.info('Snapshot worker finished.')
+        logger.info('Snapshot worker finished.')
 
     def thread_executor(self):
         """
@@ -63,7 +65,7 @@ class CreateEvent(QtCore.QThread):
             for device, future in futures.items():
                 exception = future.exception()
                 if exception:
-                    logging.error(f'Exception for {device}: {exception}')
+                    logger.error(f'Exception for {device}: {exception}')
 
     def create_task(self, device):
         """
@@ -74,7 +76,7 @@ class CreateEvent(QtCore.QThread):
         """
         from netcore import GenericHandler
 
-        logging.info(f'Connecting to {device}...')
+        logger.info(f'Connecting to {device}...')
         proxy = {
             'hostname': self.form.session['JUMPHOST_IP'],
             'username': self.form.session['JUMPHOST_USERNAME'],
@@ -89,17 +91,17 @@ class CreateEvent(QtCore.QThread):
                 proxy=proxy,
                 handler='NETMIKO'
             )
-            logging.info(f'Connection established to {device}')
+            logger.info(f'Connection established to {device}')
         except Exception:
-            logging.error(f'Connection failed to {device}')
+            logger.error(f'Connection failed to {device}')
             return
 
-        logging.info(f'Capturing and parsing data for {device}')
+        logger.info(f'Capturing and parsing data for {device}')
         mac_data = handler.sendCommand(cmd='show mac address', autoParse=True, key='mac_address')
         arp_data = handler.sendCommand(cmd='show ip arp', autoParse=True, key='mac_address')
         iface_data = handler.sendCommand(cmd='show interface status', autoParse=True, key='interface')
 
-        logging.info(f'Processing endpoint data for {device}')
+        logger.info(f'Processing endpoint data for {device}')
         endpoint_data = {}
         idx = 0
 
@@ -152,7 +154,7 @@ class CreateEvent(QtCore.QThread):
         """
         Refactors collected data to consolidate duplicate MAC entries across switches.
         """
-        logging.info('Refactoring snapshot data...')
+        logger.info('Refactoring snapshot data...')
         ep_idx = 0
         refactored = {}
         mac_to_index = {}
@@ -186,7 +188,7 @@ class CreateEvent(QtCore.QThread):
         """
         Saves the processed data into a timestamped JSON file and emits signal.
         """
-        logging.info('Saving snapshot to disk...')
+        logger.info('Saving snapshot to disk...')
         snapshots_path = os.path.join(self.form.output_dir, 'Snapshots')
         if not os.path.exists(snapshots_path):
             os.mkdir(snapshots_path)
@@ -209,7 +211,7 @@ class CreateEvent(QtCore.QThread):
         if not os.path.exists(vendor_file) or (
                 datetime.now() - datetime.fromtimestamp(os.path.getmtime(__file__))
         ).days > 90:
-            logging.info('Fetching latest OUI data from IEEE...')
+            logger.info('Fetching latest OUI data from IEEE...')
             oui_text = requests.get('https://standards-oui.ieee.org/oui/oui.txt').text
             oui_data = {}
 
@@ -261,7 +263,7 @@ class CompareEvent(QtCore.QThread):
         Loads pre and post snapshot data, processes MAC-based comparisons,
         and prepares a unified comparison result with formatted outputs.
         """
-        logging.debug("WorkerCompareEvent started.")
+        logger.debug("WorkerCompareEvent started.")
         snapshots = self.form.get_selected_items()
         snapshots_path = os.path.join(self.form.output_dir, 'Snapshots')
 
@@ -279,7 +281,7 @@ class CompareEvent(QtCore.QThread):
             self.pre_snapshot_data = json.load(pre_file)['endpoints']
             self.post_snapshot_data = json.load(post_file)['endpoints']
 
-        logging.info("Loaded pre and post snapshot data.")
+        logger.info("Loaded pre and post snapshot data.")
 
         self.pre_snapshot_data, self.post_snapshot_data = self.get_mac_data()
         self.compare_snapshots()
@@ -292,7 +294,7 @@ class CompareEvent(QtCore.QThread):
         Returns:
             tuple: Reformatted pre and post snapshot dictionaries.
         """
-        logging.debug("Reformatting snapshot data by MAC address.")
+        logger.debug("Reformatting snapshot data by MAC address.")
 
         pre_data = {
             ep['MAC Address']: ep for ep in self.pre_snapshot_data.values()
@@ -308,7 +310,7 @@ class CompareEvent(QtCore.QThread):
 
         Builds a dictionary of comparison results with appropriate formatting for UI display.
         """
-        logging.debug("Starting snapshot comparison.")
+        logger.debug("Starting snapshot comparison.")
         self.cell_format = {
             'ftNormal': {'font_color': '#000000'},
             'ftBad': {'bg_color': '#FFC7CE', 'font_color': '#9C0006'},
@@ -358,8 +360,8 @@ class CompareEvent(QtCore.QThread):
                     'Post-Hostname': self.match_attribute(pre['Hostname'], post['Hostname']),
                 })
 
-            if hasattr(logging, 'savings'):
-                logging.savings(1)
+            if hasattr(logger, 'savings'):
+                logger.savings(1)
 
         # Process new MACs from post-snapshot
         for mac, post in self.post_snapshot_data.items():
@@ -384,10 +386,10 @@ class CompareEvent(QtCore.QThread):
                     'Post-Hostname': {'value': post['Hostname'], 'cellFormat': self.cell_format['ftNormal']}
                 }
 
-                if hasattr(logging, 'savings'):
-                    logging.savings(1)
+                if hasattr(logger, 'savings'):
+                    logger.savings(1)
 
-        logging.info("Snapshot comparison completed.")
+        logger.info("Snapshot comparison completed.")
 
     def match_attribute(self, pre, post):
         """
@@ -484,4 +486,4 @@ class CompareEvent(QtCore.QThread):
         worksheet.set_column(post_col_idx, post_col_idx, 0.4, workbook.add_format(pattern_fmt))
         workbook.close()
 
-        logging.info(f"Saved MAC comparison report: {self.form.output_report}")
+        logger.info(f"Saved MAC comparison report: {self.form.output_report}")
